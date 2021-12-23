@@ -7,6 +7,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
@@ -16,6 +17,7 @@ import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest
 @Transactional
+@Commit
 class QuerydslApplicationTests {
 
     @PersistenceContext
@@ -28,8 +30,10 @@ class QuerydslApplicationTests {
 
         JPAQueryFactory queryFactory = new JPAQueryFactory(em);
         QHello qHello = new QHello("h");
+        // em.clear();
         Hello findEntity = queryFactory
                 .selectFrom(qHello)
+                .where(qHello.id.eq(hello.getId()))
                 .fetchOne();
 
         assertThat(findEntity).isEqualTo(hello);
