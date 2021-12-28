@@ -13,6 +13,8 @@ spring:
       hibernate:
       # show_sql: true
         format_sql: true
+      # JPQL 볼 수 있는 설정
+        use_sql_comments: true
 logging.level:
   org.hibernate.SQL: debug
 # org.hibernate.type: trace
