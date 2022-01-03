@@ -14,7 +14,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceUnit;
 import java.util.List;
 
 import static com.jpa.querydsl.entity.QMember.member;
@@ -29,6 +31,9 @@ public class QueryDslJoinTest {
 
     @PersistenceContext
     EntityManager em;
+
+    @PersistenceUnit
+    EntityManagerFactory emf;
 
     JPAQueryFactory queryFactory;
 
@@ -124,12 +129,91 @@ public class QueryDslJoinTest {
         List<Tuple> result = queryFactory
                 .select(member, team)
                 .from(member)
+                // 팀 이름이 teamA인 팀만 조인되면서 회원은 모두 조회
                 .leftJoin(member.team, team).on(team.name.eq("teamA"))
                 .fetch();
-        
+
+        // 내부조인 이면 익숙한 where 절로 해결하고,
+        // 정말 외부조인이 필요한 경우에만 이 기능을 사용하자.
+
         for (Tuple tuple : result) {
             System.out.println("tuple = " + tuple);
         }
+
     }
 
+    /**
+     * 2. 연관관계 없는 엔티티 외부 조인
+     * 예) 회원의 이름과 팀의 이름이 같은 대상 외부 조인
+     * JPQL: SELECT m, t FROM Member m LEFT JOIN Team t on m.username = t.name
+     * SQL: SELECT m.*, t.* FROM Member m LEFT JOIN Team t ON m.username = t.name
+     */
+    @Test
+    public void join_on_no_relation() throws Exception {
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        
+        // theta 조인(연관관계가 없는 조인)인데 외부조인이 필요할 경우
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                // 연관관계가 아닌 필드로 조인
+                .leftJoin(team).on(member.username.eq(team.name))
+                // id로 조인까지 추가
+                // .leftJoin(member.team, team).on(member.username.eq(team.name))
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("t=" + tuple);
+        }
+    }
+
+    /**
+     * 페치조인 미적용
+     */
+    @Test
+    public void noFetchJoin() throws Exception {
+        // 영속성컨텍스트를 날린후 결과 확인
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        // 영속성컨텍스트에서 초기화된 엔티티인지 확인하는 기능
+        boolean loaded =
+                emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+
+        assertThat(loaded).as("페치 조인 미적용").isFalse();
+    }
+
+    /**
+     * 페치조인 적용
+     *
+     * 페치조인
+     * SQL조인을 활용해서 연관된 엔티티를 SQL 한번에 조회하는 기능
+     * 주로 성능 최적화에 사용
+     */
+    @Test
+    public void fetchJoin() throws Exception {
+        // 영속성컨텍스트를 날린후 결과 확인
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .selectFrom(member)
+                // 페치조인적용
+                .join(member.team, team).fetchJoin()
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        // 영속성컨텍스트에서 초기화된 엔티티인지 확인하는 기능
+        boolean loaded =
+                emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+
+        assertThat(loaded).as("페치 조인 적용").isTrue();
+    }
+    
 }

@@ -6,6 +6,9 @@ import com.jpa.querydsl.entity.QTeam;
 import com.jpa.querydsl.entity.Team;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.Assertions;
@@ -20,6 +23,7 @@ import java.util.List;
 
 import static com.jpa.querydsl.entity.QMember.member;
 import static com.jpa.querydsl.entity.QTeam.team;
+import static com.querydsl.jpa.JPAExpressions.*;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest
@@ -262,4 +266,152 @@ public class QueryDslBasicTest {
         assertThat(teamB.get(team.name)).isEqualTo("teamB");
         assertThat(teamB.get(member.age.avg())).isEqualTo(35);
     }
+
+    /**
+     * 나이가 가장 많은 회원 조회
+     */
+    @Test
+    void subQuery() {
+
+        QMember sub = new QMember("sub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(
+                        select(sub.age.max())
+                                .from(sub)
+                ))
+                .fetch();
+
+        assertThat(result).extracting("age")
+                .containsExactly(40);
+    }
+
+    /**
+     * 나이가 평균 이상인 회원 조회
+     */
+    @Test
+    void subQueryGoe() {
+
+        QMember sub = new QMember("sub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.goe(
+                        select(sub.age.avg())
+                                .from(sub)
+                ))
+                .fetch();
+
+        assertThat(result).extracting("age")
+                .containsExactly(30, 40);
+    }
+
+    /**
+     * 나이가 10 초과인 회원 조회
+     */
+    @Test
+    void subQueryIn() {
+
+        QMember sub = new QMember("sub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.in(
+                        select(sub.age)
+                                .from(sub)
+                        .where(sub.age.gt(10))
+                ))
+                .fetch();
+
+        assertThat(result).extracting("age")
+                .containsExactly(20, 30, 40);
+    }
+
+    @Test
+    void selectSubQuery() {
+        QMember sub = new QMember("sub");
+
+        List<Tuple> result = queryFactory
+                .select(member.username,
+                        select(sub.age.avg())
+                                .from(sub))
+                .from(member)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+
+        // JPA JPQL 서브쿼리의 한계점
+        // from 절의 서브쿼리(인라인 뷰)는 지원하지 않는다.
+
+        // 해결방안
+        // 1. 서브쿼리를 join으로 변경(불가능한 상황 존재)
+        // 2. 애플리케이션에서 쿼리를 2번 분리해서 실행
+        // 3. 네이티브 SQL을 사용한다.
+    }
+
+    /**
+     * CASE 문
+     * 
+     * SELECT, WHERE, ORDER BY 에서 사용가능
+     */
+    @Test
+    void basicCase() {
+        List<String> result = queryFactory
+                .select(member.age
+                        .when(10).then("열살")
+                        .when(20).then("스무살")
+                        .otherwise("기타"))
+                .from(member)
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    @Test
+    void complexCase() {
+        List<String> fetch = queryFactory
+                .select(new CaseBuilder()
+                        .when(member.age.between(0, 20)).then("미성년자")
+                        .when(member.age.between(21, 30)).then("청년")
+                        .otherwise("기타"))
+                .from(member)
+                .fetch();
+
+        for (String s : fetch) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    @Test
+    void constant() {
+        List<Tuple> result = queryFactory
+                .select(member.username, Expressions.constant("A"))
+                .from(member)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+    @Test
+    void concat() {
+        List<String> result = queryFactory
+                .select(member.username.concat("_").concat(member.age.stringValue()))
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+
+
+    }
+
 }
