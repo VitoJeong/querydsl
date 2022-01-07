@@ -1,6 +1,7 @@
 package com.jpa.querydsl;
 
 import com.jpa.querydsl.dto.MemberDto;
+import com.jpa.querydsl.dto.QMemberDto;
 import com.jpa.querydsl.dto.UserDto;
 import com.jpa.querydsl.entity.Member;
 import com.jpa.querydsl.entity.QMember;
@@ -104,13 +105,16 @@ public class IntermediateTest {
      */
     @Test
     void getDtoWithJPA() {
-        List<MemberDto> result = em.createQuery("SELECT new com.jpa.querydsl.dto.MemberDto(m.username, m.age) " +
+        List<MemberDto> result =
+                em.createQuery("SELECT new com.jpa.querydsl.dto.MemberDto(m.username, m.age) " +
                 "from Member m", MemberDto.class)
                 .getResultList();
 
         for (MemberDto memberDto : result) {
             System.out.println("memberDto = " + memberDto);
         }
+
+        // 불편한 부분: 생성자만 지원, 패키지를 다 적어줘야함.
     }
 
     @Test
@@ -126,10 +130,28 @@ public class IntermediateTest {
         for (MemberDto memberDto : result) {
             System.out.println("memberDto = " + memberDto);
         }
+        
+        // 기본 생성자, setter 필요함
     }
 
     @Test
     void getDtoWithQueryDSLFields() {
+        // 필드 접근
+        List<MemberDto> result = queryFactory
+                .select(Projections.fields(MemberDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+
+        for (MemberDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+
+    }
+
+    @Test
+    void getDtoWithQueryDSLFieldsAlias() {
         QMember sub = new QMember("sub");
 
         // 필드 직접 접근
@@ -150,7 +172,7 @@ public class IntermediateTest {
 
     @Test
     void getDtoWithQueryDSLConstructor() {
-        // 필드 직접 접근
+        // 생성자 사용
         List<MemberDto> result = queryFactory
                 .select(Projections.constructor(MemberDto.class,
                         member.username,
@@ -163,4 +185,17 @@ public class IntermediateTest {
         }
     }
 
+    @Test
+    void findDtoByQueryProjection() {
+        List<MemberDto> result = queryFactory
+                .select(new QMemberDto(member.username, member.age))
+                .from(member)
+                .fetch();
+
+        for (MemberDto dto : result) {
+            System.out.println("dto = " + dto);
+        }
+
+        // 쿼리DSL에 의존적이게 됨됨
+    }
 }
