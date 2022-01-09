@@ -1,14 +1,11 @@
 package com.jpa.querydsl;
 
 import com.jpa.querydsl.entity.Member;
-import com.jpa.querydsl.entity.QMember;
 import com.jpa.querydsl.entity.Team;
 import com.querydsl.core.BooleanBuilder;
-import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
